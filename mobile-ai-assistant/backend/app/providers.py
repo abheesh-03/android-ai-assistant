@@ -25,36 +25,54 @@ class ProviderUnavailableError(Exception):
 
 class AIProvider(ABC):
     @abstractmethod
-    async def complete(self, message: str) -> str: ...
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+    ) -> str:
+        ...
 
 
 class MockProvider(AIProvider):
-    async def complete(self, message: str) -> str:
-        return f"Mock response to: {message.strip()}"
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+    ) -> str:
+        latest_message = messages[-1]["content"]
+
+        return f"Mock response to: {latest_message.strip()}"
 
 
 class AnthropicProvider(AIProvider):
     def __init__(self) -> None:
-        # Reads ANTHROPIC_API_KEY from the environment.
-        # Raises KeyError if the variable is absent — fail fast on startup.
         self._client = anthropic.AsyncAnthropic(
             api_key=os.environ["ANTHROPIC_API_KEY"],
             timeout=_TIMEOUT_SECONDS,
         )
 
-    async def complete(self, message: str) -> str:
+    async def complete(
+        self,
+        messages: list[dict[str, str]],
+    ) -> str:
         try:
             result = await self._client.messages.create(
                 model=_MODEL,
                 max_tokens=512,
                 system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": message}],
+                messages=messages,
             )
+
             return result.content[0].text
+
         except anthropic.APITimeoutError as exc:
-            raise ProviderUnavailableError("Anthropic request timed out") from exc
+            raise ProviderUnavailableError(
+                "Anthropic request timed out"
+            ) from exc
+
         except anthropic.APIConnectionError as exc:
-            raise ProviderUnavailableError("Cannot reach Anthropic API") from exc
+            raise ProviderUnavailableError(
+                "Cannot reach Anthropic API"
+            ) from exc
+
         except anthropic.APIStatusError as exc:
             raise ProviderUnavailableError(
                 f"Anthropic API returned status {exc.status_code}"
