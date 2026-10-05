@@ -29,6 +29,30 @@ emulator and a local FastAPI dev server. It has not been deployed anywhere,
 containerized, or published to the Play Store — see
 [Current Limitations](#current-limitations).
 
+## Demo
+
+<p align="center">
+  <img src="docs/screenshots/android-phone-demo.png" width="320" alt="Mobile AI Assistant running on Android">
+</p>
+
+<p align="center">
+  <b>Native Android conversational AI assistant built with Kotlin, Jetpack Compose, Room, Retrofit, FastAPI, and Claude.</b>
+</p>
+
+### App Screens
+
+<p align="center">
+  <img src="docs/screenshots/empty-state.png" width="250" alt="Empty conversation">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/single-turn-chat.png" width="250" alt="AI response">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/multi-turn-context.png" width="250" alt="Multi-turn conversation">
+</p>
+
+<p align="center">
+  <sub>Empty state • Claude response • Multi-turn contextual follow-up</sub>
+</p>
+
 ## What I Implemented
 
 **Android (Kotlin + Jetpack Compose, Material 3)**
