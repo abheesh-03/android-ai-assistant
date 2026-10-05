@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sai.mobileaiassistant.ui.theme.MobileAIAssistantTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val assistantViewModel: AssistantViewModel by viewModels {
+        AssistantViewModelFactory(applicationContext)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -57,7 +63,8 @@ class MainActivity : ComponentActivity() {
             MobileAIAssistantTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     AssistantScreen(
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        viewModel = assistantViewModel
                     )
                 }
             }
