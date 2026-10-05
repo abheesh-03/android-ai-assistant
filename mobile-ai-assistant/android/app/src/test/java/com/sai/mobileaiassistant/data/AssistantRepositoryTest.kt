@@ -4,6 +4,7 @@ import com.google.gson.JsonParseException
 import com.sai.mobileaiassistant.data.remote.ApiService
 import com.sai.mobileaiassistant.data.remote.model.ChatRequest
 import com.sai.mobileaiassistant.data.remote.model.ChatResponse
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -135,5 +136,21 @@ class AssistantRepositoryTest {
     fun `unexpected exception maps to generic error message`() = runTest {
         val api = FakeApiService { throw RuntimeException("something unexpected") }
         assertMappedMessage("Something went wrong. Please try again.", api)
+    }
+
+    @Test
+    fun `cancellation is propagated instead of mapped to network error`() = runTest {
+        val api = FakeApiService {
+            throw CancellationException("cancelled")
+        }
+
+        val repository = AssistantRepository(api)
+
+        try {
+            repository.sendMessage("test input")
+            fail("Expected CancellationException")
+        } catch (e: CancellationException) {
+            assertEquals("cancelled", e.message)
+        }
     }
 }

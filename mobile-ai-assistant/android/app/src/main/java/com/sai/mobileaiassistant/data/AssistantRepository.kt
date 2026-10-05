@@ -4,9 +4,10 @@ import com.google.gson.JsonParseException
 import com.sai.mobileaiassistant.data.remote.ApiService
 import com.sai.mobileaiassistant.data.remote.RetrofitClient
 import com.sai.mobileaiassistant.data.remote.model.ChatRequest
-import retrofit2.HttpException
 import java.io.IOException
 import java.net.SocketTimeoutException
+import kotlinx.coroutines.CancellationException
+import retrofit2.HttpException
 
 class AssistantRepository(
     private val api: ApiService = RetrofitClient.api
@@ -15,15 +16,18 @@ class AssistantRepository(
     override suspend fun sendMessage(message: String): String {
         return try {
             api.chat(ChatRequest(message)).response
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: SocketTimeoutException) {
             throw NetworkException("The request took too long. Please try again.")
         } catch (e: IOException) {
             throw NetworkException("Unable to connect. Check your network and try again.")
         } catch (e: HttpException) {
-            val msg = if (e.code() in 500..599)
+            val msg = if (e.code() in 500..599) {
                 "The AI service is temporarily unavailable. Please try again."
-            else
+            } else {
                 "Something went wrong. Please try again."
+            }
             throw NetworkException(msg)
         } catch (e: JsonParseException) {
             throw NetworkException("Received an invalid response. Please try again.")
