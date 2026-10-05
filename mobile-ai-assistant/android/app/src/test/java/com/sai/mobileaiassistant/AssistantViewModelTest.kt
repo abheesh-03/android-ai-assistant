@@ -36,13 +36,17 @@ class AssistantViewModelTest {
     private class FakeSuccessRepository(
         private val answer: String
     ) : MessageRepository {
-        override suspend fun sendMessage(message: String): String = answer
+        override suspend fun sendMessages(
+            messages: List<ChatMessage>
+        ): String = answer
     }
 
     private class FakeFailureRepository(
         private val errorMessage: String
     ) : MessageRepository {
-        override suspend fun sendMessage(message: String): String {
+        override suspend fun sendMessages(
+            messages: List<ChatMessage>
+        ): String {
             throw Exception(errorMessage)
         }
     }
@@ -54,7 +58,9 @@ class AssistantViewModelTest {
             deferred.complete(value)
         }
 
-        override suspend fun sendMessage(message: String): String {
+        override suspend fun sendMessages(
+            messages: List<ChatMessage>
+        ): String {
             return deferred.await()
         }
     }
@@ -65,7 +71,9 @@ class AssistantViewModelTest {
 
         private val deferred = CompletableDeferred<String>()
 
-        override suspend fun sendMessage(message: String): String {
+        override suspend fun sendMessages(
+            messages: List<ChatMessage>
+        ): String {
             callCount++
             return deferred.await()
         }
@@ -81,13 +89,30 @@ class AssistantViewModelTest {
 
         private val deferred = CompletableDeferred<String>()
 
-        override suspend fun sendMessage(message: String): String {
+        override suspend fun sendMessages(
+            messages: List<ChatMessage>
+        ): String {
             return try {
                 deferred.await()
             } catch (e: CancellationException) {
                 wasCancelled = true
                 throw e
             }
+        }
+    }
+
+    private class RecordingRepository(
+        private val answers: List<String>
+    ) : MessageRepository {
+
+        val requests = mutableListOf<List<ChatMessage>>()
+
+        override suspend fun sendMessages(
+            messages: List<ChatMessage>
+        ): String {
+            requests += messages.toList()
+
+            return answers[requests.lastIndex]
         }
     }
 
@@ -112,7 +137,9 @@ class AssistantViewModelTest {
 
     @Test
     fun `sending valid prompt adds user and assistant messages in order`() {
-        val vm = AssistantViewModel(FakeSuccessRepository("AI reply"))
+        val vm = AssistantViewModel(
+            FakeSuccessRepository("AI reply")
+        )
 
         vm.onInputChange("Hello")
         vm.send()
@@ -130,7 +157,9 @@ class AssistantViewModelTest {
 
     @Test
     fun `input clears after submission`() {
-        val vm = AssistantViewModel(FakeSuccessRepository("answer"))
+        val vm = AssistantViewModel(
+            FakeSuccessRepository("answer")
+        )
 
         vm.onInputChange("question")
         vm.send()
@@ -140,7 +169,9 @@ class AssistantViewModelTest {
 
     @Test
     fun `successful send finishes with loading false and no error`() {
-        val vm = AssistantViewModel(FakeSuccessRepository("answer"))
+        val vm = AssistantViewModel(
+            FakeSuccessRepository("answer")
+        )
 
         vm.onInputChange("question")
         vm.send()
@@ -150,66 +181,82 @@ class AssistantViewModelTest {
     }
 
     @Test
-    fun `send shows user message while assistant request is still in flight`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        Dispatchers.setMain(testDispatcher)
+    fun `send shows user message while assistant request is still in flight`() =
+        runTest {
+            val testDispatcher =
+                StandardTestDispatcher(testScheduler)
 
-        val repo = FakeSlowRepository()
-        val vm = AssistantViewModel(repo)
+            Dispatchers.setMain(testDispatcher)
 
-        vm.onInputChange("question")
-        vm.send()
+            val repo = FakeSlowRepository()
+            val vm = AssistantViewModel(repo)
 
-        assertTrue(vm.uiState.value.isLoading)
-        assertEquals(1, vm.uiState.value.messages.size)
-        assertEquals(MessageRole.USER, vm.uiState.value.messages.single().role)
-        assertEquals("question", vm.uiState.value.messages.single().content)
+            vm.onInputChange("question")
+            vm.send()
 
-        runCurrent()
+            assertTrue(vm.uiState.value.isLoading)
+            assertEquals(1, vm.uiState.value.messages.size)
+            assertEquals(
+                MessageRole.USER,
+                vm.uiState.value.messages.single().role
+            )
+            assertEquals(
+                "question",
+                vm.uiState.value.messages.single().content
+            )
 
-        repo.complete("the answer")
-        advanceUntilIdle()
+            runCurrent()
 
-        assertFalse(vm.uiState.value.isLoading)
-        assertEquals(2, vm.uiState.value.messages.size)
-        assertEquals(
-            MessageRole.ASSISTANT,
-            vm.uiState.value.messages[1].role
-        )
-        assertEquals(
-            "the answer",
-            vm.uiState.value.messages[1].content
-        )
-    }
+            repo.complete("the answer")
+            advanceUntilIdle()
+
+            assertFalse(vm.uiState.value.isLoading)
+            assertEquals(2, vm.uiState.value.messages.size)
+
+            assertEquals(
+                MessageRole.ASSISTANT,
+                vm.uiState.value.messages[1].role
+            )
+
+            assertEquals(
+                "the answer",
+                vm.uiState.value.messages[1].content
+            )
+        }
 
     @Test
-    fun `duplicate send while request is active does not call repository twice`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        Dispatchers.setMain(testDispatcher)
+    fun `duplicate send while request is active does not call repository twice`() =
+        runTest {
+            val testDispatcher =
+                StandardTestDispatcher(testScheduler)
 
-        val repo = CountingSlowRepository()
-        val vm = AssistantViewModel(repo)
+            Dispatchers.setMain(testDispatcher)
 
-        vm.onInputChange("first question")
-        vm.send()
+            val repo = CountingSlowRepository()
+            val vm = AssistantViewModel(repo)
 
-        runCurrent()
+            vm.onInputChange("first question")
+            vm.send()
 
-        vm.onInputChange("second question")
-        vm.send()
+            runCurrent()
 
-        runCurrent()
+            vm.onInputChange("second question")
+            vm.send()
 
-        assertEquals(1, repo.callCount)
-        assertEquals(1, vm.uiState.value.messages.size)
+            runCurrent()
 
-        repo.complete("answer")
-        advanceUntilIdle()
-    }
+            assertEquals(1, repo.callCount)
+            assertEquals(1, vm.uiState.value.messages.size)
+
+            repo.complete("answer")
+            advanceUntilIdle()
+        }
 
     @Test
     fun `blank prompt is ignored`() {
-        val vm = AssistantViewModel(FakeSuccessRepository("should not appear"))
+        val vm = AssistantViewModel(
+            FakeSuccessRepository("should not appear")
+        )
 
         vm.onInputChange("   ")
         vm.send()
@@ -232,8 +279,14 @@ class AssistantViewModelTest {
         val state = vm.uiState.value
 
         assertEquals(1, state.messages.size)
-        assertEquals(MessageRole.USER, state.messages.single().role)
-        assertEquals("question", state.messages.single().content)
+        assertEquals(
+            MessageRole.USER,
+            state.messages.single().role
+        )
+        assertEquals(
+            "question",
+            state.messages.single().content
+        )
         assertEquals(
             "Unable to connect. Check your network and try again.",
             state.error
@@ -243,50 +296,134 @@ class AssistantViewModelTest {
 
     @Test
     fun `clear removes conversation and resets state`() {
-        val vm = AssistantViewModel(FakeSuccessRepository("answer"))
+        val vm = AssistantViewModel(
+            FakeSuccessRepository("answer")
+        )
 
         vm.onInputChange("question")
         vm.send()
         vm.clear()
 
-        assertEquals(AssistantUiState(), vm.uiState.value)
+        assertEquals(
+            AssistantUiState(),
+            vm.uiState.value
+        )
     }
 
     @Test
-    fun `clear cancels in flight request without exposing cancellation as error`() = runTest {
-        val testDispatcher = StandardTestDispatcher(testScheduler)
-        Dispatchers.setMain(testDispatcher)
+    fun `clear cancels in flight request without exposing cancellation as error`() =
+        runTest {
+            val testDispatcher =
+                StandardTestDispatcher(testScheduler)
 
-        val repo = CancellableRepository()
-        val vm = AssistantViewModel(repo)
+            Dispatchers.setMain(testDispatcher)
 
-        vm.onInputChange("question")
-        vm.send()
+            val repo = CancellableRepository()
+            val vm = AssistantViewModel(repo)
 
-        runCurrent()
+            vm.onInputChange("question")
+            vm.send()
 
-        assertTrue(vm.uiState.value.isLoading)
+            runCurrent()
 
-        vm.clear()
-        advanceUntilIdle()
+            assertTrue(vm.uiState.value.isLoading)
 
-        assertTrue(repo.wasCancelled)
-        assertEquals(AssistantUiState(), vm.uiState.value)
-        assertNull(vm.uiState.value.error)
-    }
+            vm.clear()
+            advanceUntilIdle()
+
+            assertTrue(repo.wasCancelled)
+            assertEquals(
+                AssistantUiState(),
+                vm.uiState.value
+            )
+            assertNull(vm.uiState.value.error)
+        }
 
     @Test
     fun `changing input does not modify existing conversation messages`() {
-        val vm = AssistantViewModel(FakeSuccessRepository("AI reply"))
+        val vm = AssistantViewModel(
+            FakeSuccessRepository("AI reply")
+        )
 
         vm.onInputChange("first question")
         vm.send()
 
-        val messagesBeforeInputChange = vm.uiState.value.messages
+        val messagesBeforeInputChange =
+            vm.uiState.value.messages
 
         vm.onInputChange("next question")
 
-        assertEquals(messagesBeforeInputChange, vm.uiState.value.messages)
-        assertEquals("next question", vm.uiState.value.input)
+        assertEquals(
+            messagesBeforeInputChange,
+            vm.uiState.value.messages
+        )
+
+        assertEquals(
+            "next question",
+            vm.uiState.value.input
+        )
+    }
+
+    @Test
+    fun `follow up request includes previous conversation context`() {
+        val repo = RecordingRepository(
+            answers = listOf(
+                "Coroutines allow asynchronous work.",
+                "Here is a simple coroutine example."
+            )
+        )
+
+        val vm = AssistantViewModel(repo)
+
+        vm.onInputChange("Explain Kotlin coroutines")
+        vm.send()
+
+        vm.onInputChange("Show me a simple example")
+        vm.send()
+
+        assertEquals(2, repo.requests.size)
+
+        val firstRequest = repo.requests[0]
+
+        assertEquals(1, firstRequest.size)
+        assertEquals(
+            MessageRole.USER,
+            firstRequest[0].role
+        )
+        assertEquals(
+            "Explain Kotlin coroutines",
+            firstRequest[0].content
+        )
+
+        val secondRequest = repo.requests[1]
+
+        assertEquals(3, secondRequest.size)
+
+        assertEquals(
+            MessageRole.USER,
+            secondRequest[0].role
+        )
+        assertEquals(
+            "Explain Kotlin coroutines",
+            secondRequest[0].content
+        )
+
+        assertEquals(
+            MessageRole.ASSISTANT,
+            secondRequest[1].role
+        )
+        assertEquals(
+            "Coroutines allow asynchronous work.",
+            secondRequest[1].content
+        )
+
+        assertEquals(
+            MessageRole.USER,
+            secondRequest[2].role
+        )
+        assertEquals(
+            "Show me a simple example",
+            secondRequest[2].content
+        )
     }
 }

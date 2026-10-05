@@ -50,10 +50,13 @@ class AssistantViewModel(
             content = prompt
         )
 
+        val conversationForRequest =
+            currentState.messages + userMessage
+
         _uiState.update {
             it.copy(
                 input = "",
-                messages = it.messages + userMessage,
+                messages = conversationForRequest,
                 isLoading = true,
                 error = null
             )
@@ -61,7 +64,9 @@ class AssistantViewModel(
 
         sendJob = viewModelScope.launch {
             try {
-                val result = repository.sendMessage(prompt)
+                val result = repository.sendMessages(
+                    conversationForRequest
+                )
 
                 val assistantMessage = ChatMessage(
                     id = UUID.randomUUID().toString(),
@@ -82,7 +87,8 @@ class AssistantViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.message ?: "Something went wrong. Please try again."
+                        error = e.message
+                            ?: "Something went wrong. Please try again."
                     )
                 }
             }
