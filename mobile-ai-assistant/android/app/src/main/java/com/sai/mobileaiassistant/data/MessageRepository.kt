@@ -1,5 +1,7 @@
 package com.sai.mobileaiassistant.data
 
+import com.sai.mobileaiassistant.ChatMessage
+
 interface MessageRepository {
-    suspend fun sendMessage(message: String): String
+    suspend fun sendMessages(messages: List<ChatMessage>): String
 }

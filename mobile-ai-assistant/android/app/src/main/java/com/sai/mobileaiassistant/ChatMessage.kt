@@ -1,0 +1,12 @@
+package com.sai.mobileaiassistant
+
+enum class MessageRole {
+    USER,
+    ASSISTANT
+}
+
+data class ChatMessage(
+    val id: String,
+    val role: MessageRole,
+    val content: String
+)
