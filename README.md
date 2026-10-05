@@ -1,6 +1,6 @@
 # android-ai-assistant
 
-Hands-on projects focused on mobile AI, Android engineering, backend integration, and production-minded AI systems.
+Hands-on project focused on mobile AI, Android engineering, backend integration, and production-minded AI systems.
 
 ## Projects
 
