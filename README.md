@@ -2,6 +2,8 @@
 
 Native Android conversational AI assistant built with **Kotlin, Jetpack Compose, ViewModel, StateFlow, Room, Retrofit/OkHttp, FastAPI, and Anthropic Claude**.
 
+Initial development and local testing ran from June through September 2026, with later commits focused mainly on testing, documentation, and small refinements.
+
 <p align="center">
   <img src="mobile-ai-assistant/docs/screenshots/android-phone-demo.png" width="340" alt="Android AI Assistant running on a Pixel emulator">
 </p>
